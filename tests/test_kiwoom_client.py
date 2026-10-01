@@ -12,10 +12,12 @@ def test_parse_strips_sign_and_keeps_blank_as_none():
         {"dt": "20250102", "open_pric": "+70100", "high_pric": "-71000", "low_pric": "69000",
          "cur_prc": "+70500", "trde_qty": "1234", "trde_prica": ""},
         {"dt": "20250101", "open_pric": "1", "high_pric": "1", "low_pric": "1",
-         "cur_prc": "1", "trde_qty": "1", "trde_prica": "5"},
+         "cur_prc": "1", "trde_qty": "1", "trde_prica": "+5"},
         {"dt": "", "cur_prc": "1"},
     ]})
     assert [r["date"] for r in rows] == ["20250101", "20250102"]
+    # 거래대금은 백만원 단위로 온다
+    assert rows[0]["a"] == 5_000_000.0
     assert rows[1] == {"date": "20250102", "o": 70100.0, "h": 71000.0, "l": 69000.0,
                        "c": 70500.0, "v": 1234.0, "a": None}
 

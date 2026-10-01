@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 DAILY_CHART_PATH = "/api/dostk/chart"
 DAILY_CHART_API_ID = "ka10081"
 DAILY_CHART_LIST_KEY = "stk_dt_pole_chart_qry"
+# ka10081 거래대금(trde_prica)은 백만원 단위다. 공개 문서에 없어 실측했다
+# (2026-10-01 005930 600거래일, 거래대금 / (종가 x 거래량) 중앙값 1.0006e-06).
+# DB는 원 단위라 곱해서 맞춘다. 백만원 미만 자릿수는 오지 않는다.
+AMOUNT_UNIT = 1_000_000
 # 만료 이만큼 전에 새로 받는다. 응답 대기 중에 만료되는 것을 막는다.
 TOKEN_REFRESH_MARGIN = timedelta(minutes=10)
 
@@ -35,6 +39,10 @@ def _number(value: Any) -> Optional[float]:
         return None
 
 
+def _won(amount: Optional[float]) -> Optional[float]:
+    return None if amount is None else amount * AMOUNT_UNIT
+
+
 def parse_daily_rows(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """ka10081 응답을 core 축약 필드(o/h/l/c/v/a) 레코드로 바꾼다. 날짜 오름차순."""
     rows = []
@@ -49,8 +57,7 @@ def parse_daily_rows(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
             "l": _number(item.get("low_pric")),
             "c": _number(item.get("cur_prc")),
             "v": _number(item.get("trde_qty")),
-            # 단위는 공개 문서에 없다. DB 대조의 거래대금 비율로 확인한다.
-            "a": _number(item.get("trde_prica")),
+            "a": _won(_number(item.get("trde_prica"))),
         })
     rows.sort(key=lambda r: r["date"])
     return rows

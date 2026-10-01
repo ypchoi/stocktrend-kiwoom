@@ -22,25 +22,32 @@ def test_target_markets_domestic_price_only_and_requested():
 
 
 def test_compare_rows_counts_each_outcome():
-    stats, scale = Counter(), Counter()
-    kiwoom = [_row("20250102", 100.0, a=1.0), _row("20250103", 100.0), _row("20250106", 100.0)]
+    stats = Counter()
+    kiwoom = [_row("20250102", 100.0, a=5_000_000.0), _row("20250103", 100.0),
+              _row("20250106", 100.0)]
     db = [
-        {"date": "20250102", "o": 100, "h": 100, "l": 100, "c": 100, "v": 10, "a": 1_000_000},
+        {"date": "20250102", "o": 100, "h": 100, "l": 100, "c": 100, "v": 10, "a": 5_123_456},
         {"date": "20250103", "o": 100, "h": 100, "l": 100, "c": 101, "v": 10},
         {"date": "20250107", "c": 100},
     ]
-    mismatched = collector.compare_rows(kiwoom, db, stats, scale)
+    mismatched = collector.compare_rows(kiwoom, db, stats)
     assert mismatched == ["20250103"]
     assert stats == Counter(rows=3, matched=1, mismatched=1, missing_in_db=1,
                             missing_in_kiwoom=1)
-    assert scale == Counter({6: 1})
+
+
+def test_compare_rows_amount_beyond_million_won_is_mismatch():
+    stats = Counter()
+    kiwoom = [_row("20250102", 100.0, a=5_000_000.0)]
+    db = [{"date": "20250102", "o": 100, "h": 100, "l": 100, "c": 100, "v": 10, "a": 6_000_001}]
+    assert collector.compare_rows(kiwoom, db, stats) == ["20250102"]
 
 
 def test_compare_rows_ignores_null_fields():
     stats = Counter()
     kiwoom = [{**_row("20250102", 100.0), "v": None}]
     db = [{"date": "20250102", "o": 100, "h": 100, "l": 100, "c": 100, "v": 99}]
-    assert collector.compare_rows(kiwoom, db, stats, Counter()) == []
+    assert collector.compare_rows(kiwoom, db, stats) == []
     assert stats["matched"] == 1
 
 
@@ -69,7 +76,7 @@ async def test_compare_chunk_clips_to_chunk_and_skips_today(monkeypatch):
     stats, samples = Counter(), []
 
     await collector.compare_chunk(client, "KOSPI", "005930", chunk, "20250110",
-                                  stats, Counter(), samples)
+                                  stats, samples)
 
     # 청크 끝이 오늘보다 뒤면 오늘을 기준일로 부른다
     assert client.calls == [("005930", "20250110")]
@@ -86,7 +93,7 @@ async def test_compare_chunk_counts_failure_without_db_read(monkeypatch):
     stats = Counter()
     chunk = {"chunk_number": 91, "start_date": "20250101", "end_date": "20250410"}
     await collector.compare_chunk(FakeClient(error=RuntimeError("boom")), "KOSPI", "005930",
-                                  chunk, "20250501", stats, Counter(), [])
+                                  chunk, "20250501", stats, [])
     assert stats == Counter(calls_failed=1)
 
 

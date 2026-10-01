@@ -22,12 +22,12 @@ from stocktrend_core.services.market_sync import MarketSync
 from stocktrend_core.services.price_store import DOMESTIC_MARKETS, PriceStore
 
 from src.config import settings
-from src.kiwoom_client import KiwoomClient
+from src.kiwoom_client import AMOUNT_UNIT, KiwoomClient
 
 logger = logging.getLogger(__name__)
 
 KST = ZoneInfo("Asia/Seoul")
-COMPARE_FIELDS = ("o", "h", "l", "c", "v")
+COMPARE_FIELDS = ("o", "h", "l", "c", "v", "a")
 MISMATCH_LOG_LIMIT = 20
 EVENT_LISTENER_RETRY_SECS = 5
 
@@ -48,11 +48,10 @@ def target_markets(markets: Dict[str, Dict[str, Any]], requested: set[str]) -> L
 
 def compare_rows(
     kiwoom_rows: List[Dict[str, Any]], db_rows: List[Dict[str, Any]], stats: Counter,
-    amount_scale: Counter,
 ) -> List[str]:
     """한 종목·청크의 대조 결과를 stats에 더하고 불일치 날짜를 돌려준다.
 
-    거래대금은 단위가 확인되지 않아 불일치로 세지 않는다. DB/키움 비율의 자릿수만 모은다.
+    키움 거래대금은 백만원 미만 자릿수가 없으므로 그 폭 안의 차이는 일치로 본다.
     """
     db_by_date = {r["date"]: r for r in db_rows}
     kiwoom_dates = {r["date"] for r in kiwoom_rows}
@@ -66,21 +65,20 @@ def compare_rows(
             continue
         if any(
             row[f] is not None and stored.get(f) is not None
-            and not math.isclose(float(stored[f]), row[f], rel_tol=1e-9)
+            and not math.isclose(float(stored[f]), row[f], rel_tol=1e-9,
+                                 abs_tol=AMOUNT_UNIT if f == "a" else 0.0)
             for f in COMPARE_FIELDS
         ):
             stats["mismatched"] += 1
             mismatched.append(row["date"])
         else:
             stats["matched"] += 1
-        if row["a"] and stored.get("a"):
-            amount_scale[round(math.log10(float(stored["a"]) / row["a"]))] += 1
     return mismatched
 
 
 async def compare_chunk(
     client: KiwoomClient, market: str, ticker: str, chunk: Dict[str, Any], today: str,
-    stats: Counter, amount_scale: Counter, samples: List[str],
+    stats: Counter, samples: List[str],
 ) -> None:
     # 오늘 봉은 장중 값이라 DB와 어긋나는 게 정상이다. 마감된 날만 대조한다.
     end = min(chunk["end_date"], today)
@@ -96,7 +94,7 @@ async def compare_chunk(
         market, ticker, start=chunk["start_date"], end=end
     )
     db_rows = [r for r in db_rows if r["date"] < today]
-    for day in compare_rows(rows, db_rows, stats, amount_scale):
+    for day in compare_rows(rows, db_rows, stats):
         if len(samples) < MISMATCH_LOG_LIMIT:
             kiwoom = next(r for r in rows if r["date"] == day)
             stored = next(r for r in db_rows if r["date"] == day)
@@ -124,20 +122,17 @@ async def run_cycle(client: KiwoomClient, requested: set[str]) -> None:
 
     started = time.monotonic()
     stats: Dict[str, Counter] = defaultdict(Counter)
-    amount_scale: Dict[str, Counter] = defaultdict(Counter)
     samples: Dict[str, List[str]] = defaultdict(list)
     for chunk in chunk_ranges:
         await asyncio.gather(*(
-            compare_chunk(client, m, t, chunk, today, stats[m], amount_scale[m], samples[m])
+            compare_chunk(client, m, t, chunk, today, stats[m], samples[m])
             for m in markets for t in tickers[m]
         ))
         logger.info(f"Chunk #{chunk['chunk_number']} {chunk['start_date']}~{chunk['end_date']} "
                     f"done: {dict(stats)}")
 
     for m in markets:
-        # 비율 자릿수 6이면 키움 거래대금은 백만원 단위다.
-        logger.info(f"[{m}] compare result: {dict(stats[m])} "
-                    f"amount db/kiwoom log10: {dict(amount_scale[m])}")
+        logger.info(f"[{m}] compare result: {dict(stats[m])}")
         for line in samples[m]:
             logger.info(f"[{m}] mismatch {line}")
     logger.info(f"Kiwoom cycle finished in {time.monotonic() - started:.0f}s")
