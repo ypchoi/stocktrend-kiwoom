@@ -73,11 +73,11 @@ class KiwoomClient:
         async with self._token_lock:
             if self._token and datetime.now() < self._token_expires_at - TOKEN_REFRESH_MARGIN:
                 return self._token
-            if not settings.kiwoom_app_key or not settings.kiwoom_secret_key:
-                raise KiwoomApiError("KIWOOM_APP_KEY / KIWOOM_SECRET_KEY not set")
+            if not settings.kiwoom_api_key or not settings.kiwoom_secret_key:
+                raise KiwoomApiError("KIWOOM_API_KEY / KIWOOM_SECRET_KEY not set")
             resp = await self._http.post("/oauth2/token", json={
                 "grant_type": "client_credentials",
-                "appkey": settings.kiwoom_app_key,
+                "appkey": settings.kiwoom_api_key,
                 "secretkey": settings.kiwoom_secret_key,
             })
             body = resp.json()

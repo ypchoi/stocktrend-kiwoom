@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     kiwoom_port: int = Field(8028, validation_alias="KIWOOM_PORT")
     metadata_redis_url: str = Field(validation_alias="METADATA_REDIS_URL")
     # 키가 없어도 기동은 한다. 첫 호출에서 토큰 발급이 실패한다.
-    kiwoom_app_key: Optional[str] = Field(None, validation_alias="KIWOOM_APP_KEY")
+    kiwoom_api_key: Optional[str] = Field(None, validation_alias="KIWOOM_API_KEY")
     kiwoom_secret_key: Optional[str] = Field(None, validation_alias="KIWOOM_SECRET_KEY")
     kiwoom_base_url: str = Field("https://api.kiwoom.com", validation_alias="KIWOOM_BASE_URL")
     # interval은 러너 전체가 공유하는 호출 시작 간격이다 (core RateLimitedApiQueue).

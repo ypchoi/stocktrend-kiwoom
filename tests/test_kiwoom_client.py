@@ -25,7 +25,7 @@ def test_parse_empty_payload():
 
 
 def _client(monkeypatch, handler) -> KiwoomClient:
-    monkeypatch.setattr(kiwoom_client.settings, "kiwoom_app_key", "k")
+    monkeypatch.setattr(kiwoom_client.settings, "kiwoom_api_key", "k")
     monkeypatch.setattr(kiwoom_client.settings, "kiwoom_secret_key", "s")
     client = KiwoomClient()
     client._http = httpx.AsyncClient(
@@ -83,8 +83,8 @@ async def test_401_drops_token_for_next_call(monkeypatch):
 
 
 async def test_missing_keys_fail_before_request(monkeypatch):
-    monkeypatch.setattr(kiwoom_client.settings, "kiwoom_app_key", None)
+    monkeypatch.setattr(kiwoom_client.settings, "kiwoom_api_key", None)
     client = KiwoomClient()
-    with pytest.raises(KiwoomApiError, match="KIWOOM_APP_KEY"):
+    with pytest.raises(KiwoomApiError, match="KIWOOM_API_KEY"):
         await client.fetch_daily("005930", "20250110")
     await client.close()
