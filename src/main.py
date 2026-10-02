@@ -1,18 +1,13 @@
 import asyncio
-import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Response, status
+from stocktrend_core.services.collector_loop import setup_logging
 
 from src.collector import metadata_redis, run_forever
 from src.config import SERVICE_NAME, settings
 
-logging.basicConfig(
-    level=settings.log_level.upper(),
-    format="%(asctime)s KST - %(name)s - %(levelname)s - %(message)s",
-)
-logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=9))).timetuple()
+setup_logging(settings.log_level)
 
 
 @asynccontextmanager

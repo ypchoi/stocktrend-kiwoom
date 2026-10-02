@@ -16,8 +16,8 @@ from zoneinfo import ZoneInfo
 import redis.asyncio as redis
 from stocktrend_core import RateLimitedApiQueue
 from stocktrend_core.constants import BACKFILL_CHUNK_DAYS, BACKFILL_START_DATE
-from stocktrend_core.events import EventBus
 from stocktrend_core.services import collector_metadata
+from stocktrend_core.services.collector_loop import listen_for_triggers
 from stocktrend_core.services.market_sync import MarketSync
 from stocktrend_core.services.price_store import DOMESTIC_MARKETS, PriceStore
 
@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 KST = ZoneInfo("Asia/Seoul")
 COMPARE_FIELDS = ("o", "h", "l", "c", "v", "a")
 MISMATCH_LOG_LIMIT = 20
-EVENT_LISTENER_RETRY_SECS = 5
 
 metadata_redis = redis.from_url(settings.metadata_redis_url)
 # source 없이 만들면 쓰기가 PermissionError로 막힌다. 대조 전용이다.
@@ -138,25 +137,11 @@ async def run_cycle(client: KiwoomClient, requested: set[str]) -> None:
     logger.info(f"Kiwoom cycle finished in {time.monotonic() - started:.0f}s")
 
 
-async def event_listener() -> None:
-    bus = EventBus()
-    # 구독이 끊기면 트리거를 영영 못 받는다. 재구독한다.
-    while True:
-        try:
-            async for msg in bus.subscribe():
-                if msg.sender == "stocktrend-manager" and msg.event_type == "trigger_kiwoom":
-                    logger.info(f"[Event] trigger_kiwoom: {msg.payload.get('markets')}")
-                    market_sync.trigger(msg.payload.get("markets"))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.error(f"[Event] listener error: {e}")
-        await asyncio.sleep(EVENT_LISTENER_RETRY_SECS)
-
-
 async def run_forever() -> None:
     client = KiwoomClient()
-    listener = asyncio.create_task(event_listener())
+    listener = asyncio.create_task(listen_for_triggers("kiwoom", {
+        "trigger_kiwoom": lambda msg: market_sync.trigger(msg.payload.get("markets")),
+    }))
     api_queue.start()
     try:
         # 재시작 전 목록 갱신은 list의 ready 키로 복구한다.
