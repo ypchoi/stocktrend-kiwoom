@@ -2,7 +2,7 @@
 
 ## 1. 개요 (Overview)
 `stocktrend-kiwoom`은 키움증권 REST API로 국내(KOSPI·KOSDAQ) **수정주가 일봉(OHLCVA)**을 받아,
-`stocktrend-kis`가 적재한 `daily_prices_adj`와 **대조만 하는 검증용 수집기**입니다.
+`stocktrend-kis`가 적재한 `stock_daily`와 **대조만 하는 검증용 수집기**입니다.
 
 - **아직 DB에 쓰지 않습니다.** 대조 결과는 로그로만 남깁니다. `PriceStore`를 `source` 없이 만들어
   쓰기는 `PermissionError`로 막힙니다.
@@ -12,7 +12,7 @@
 ## 2. 기술 스택 (Tech Stack)
 - **Language**: Python 3.12+
 - **Framework**: FastAPI (Uvicorn) — `/health`·`/ready` 전용, 시세 서빙 API는 없음
-- **Storage**: PostgreSQL 읽기(`daily_prices_adj`) + 공통 메타데이터 Redis 읽기(마켓·종목 목록)
+- **Storage**: PostgreSQL 읽기(`stock_daily`) + 공통 메타데이터 Redis 읽기(마켓·종목 목록)
 - **Dependencies**:
   - `httpx`: 키움 REST API 비동기 호출
   - `stocktrend-core`: `RateLimitedApiQueue`(호출 간격), `collector_metadata`(청크 격자·목록 조회),
@@ -72,7 +72,7 @@
 - `GET /ready`: 메타데이터 Redis PING이 되면 `{"status": "ready"}`, 아니면 503
 
 ## 5. 데이터 규약 및 연동 (Data Schema & Integration)
-- **읽기**: 메타데이터 Redis(마켓 설정·종목 목록·list ready 키), PostgreSQL `daily_prices_adj`
+- **읽기**: 메타데이터 Redis(마켓 설정·종목 목록·list ready 키), PostgreSQL `stock_daily`
   (`PriceStore.load_daily_prices_adj`, KIS가 쓴 국내 OHLCVA)
 - **쓰기**: 없음
 - **이벤트**: `trigger_kiwoom`을 구독만 합니다. 발행하는 이벤트는 없습니다. 이벤트 sender 이름은
@@ -83,7 +83,7 @@
 |---|---|---|
 | `KIWOOM_PORT` | 8028 | FastAPI 포트 |
 | `METADATA_REDIS_URL` | (필수) | 마켓·종목 메타데이터 Redis |
-| `_POSTGRES_URL` | (필수) | 대조용 `daily_prices_adj` 읽기 (core `PriceStore`가 읽음) |
+| `_POSTGRES_URL` | (필수) | 대조용 `stock_daily` 읽기 (core `PriceStore`가 읽음) |
 | `KIWOOM_API_KEY`, `KIWOOM_SECRET_KEY` | 없음 | 앱 키 (Infisical 이름 그대로). 없어도 기동은 하고 첫 호출에서 실패 |
 | `KIWOOM_BASE_URL` | `https://api.kiwoom.com` | 키움 REST API 주소 |
 | `KIWOOM_INTERVAL_SECS` | 0.25 | 러너 전체가 공유하는 호출 시작 간격. 공개 문서에 한도 수치가 없어 실측 전까지 초당 4회 |

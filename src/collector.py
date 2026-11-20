@@ -1,7 +1,7 @@
 """키움 국내 일봉(OHLCVA) 수집 사이클.
 
 청크 격자는 다른 수집기와 같다 (`_DATA_EPOCH` 원점, `BACKFILL_START_DATE`부터, 최신 청크 먼저).
-아직 DB에 쓰지 않는다. 받은 값을 KIS가 쓴 `daily_prices_adj`와 대조해 로그로만 남긴다.
+아직 DB에 쓰지 않는다. 받은 값을 KIS가 쓴 `stock_daily`와 대조해 로그로만 남긴다.
 쓰지 않으므로 완료 비트도 남기지 않고, 매 사이클 전 구간을 다시 받는다.
 """
 import asyncio
