@@ -1,0 +1,5 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "output": { "filePath": "../repomix/stocktrend-kiwoom.xml" },
+  "ignore": { "customPatterns": ["**/.env", "**/secrets/**", "**/.claude/settings.local.json"] }
+}
